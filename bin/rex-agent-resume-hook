@@ -1,0 +1,14 @@
+#!/bin/sh
+agent=$1
+root=${0%/*}/..
+rex=${REX_AGENT_RESUME_REX:-}
+[ -z "$rex" ] && [ -n "$REX_BIN_DIR" ] && rex="$REX_BIN_DIR/rex"
+[ -z "$rex" ] && rex=$(command -v rex 2>/dev/null)
+if [ -n "$REX_BLOCK" ] && [ -n "$REX_SESSION" ] && [ -x "$rex" ]; then
+  "$rex" --autostart=false do "$root/lua/rex-agent-resume/run.lua" mode=hook agent="$agent" ppid="$PPID" >/dev/null 2>&1
+else
+  cat >/dev/null
+fi
+# Antigravity CLI reads the hook's stdout as its answer.
+[ "$agent" = antigravity-cli ] && printf '{}\n'
+exit 0

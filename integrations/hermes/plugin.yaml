@@ -1,0 +1,3 @@
+name: rex-agent-resume
+version: "1.0"
+description: Report the Hermes session in a Rex pane to rex-agent-resume
