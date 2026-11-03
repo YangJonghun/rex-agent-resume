@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+import json, os, subprocess, sys, time
+
+args = sys.argv[1:]
+session = args[args.index("--resume") + 1] if "--resume" in args else "d%d" % os.getpid()
+payload = json.dumps({"hook_event_name": "SessionStart", "session_id": session})
+subprocess.run([os.environ["E2E_HOOK"], "droid"], input=payload.encode())
+while True:
+    time.sleep(3600)

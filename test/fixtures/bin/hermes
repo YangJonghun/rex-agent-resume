@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+import importlib.util, os, sys, time
+
+args = sys.argv[1:]
+session = args[args.index("--resume") + 1] if "--resume" in args else "h%d" % os.getpid()
+path = os.environ["E2E_HOME"] + "/.hermes/plugins/rex-agent-resume/__init__.py"
+spec = importlib.util.spec_from_file_location("plugin", path)
+plugin = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(plugin)
+hooks = {}
+plugin.register(type("Ctx", (), {"register_hook": lambda self, name, fn: hooks.__setitem__(name, fn)})())
+hooks["on_session_start"](platform="cli", session_id=session)
+while True:
+    time.sleep(3600)

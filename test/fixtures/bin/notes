@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+import json, os, subprocess, sys, time
+
+argv = ["notes"] + (sys.argv[1:] or [os.environ["E2E_TMP"] + "/todo.txt"])
+subprocess.run(["rex", "do", "agent_resume_hint", "--args", json.dumps({"argv": argv})], capture_output=True)
+while True:
+    time.sleep(3600)

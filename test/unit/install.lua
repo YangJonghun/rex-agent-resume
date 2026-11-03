@@ -1,0 +1,90 @@
+local t = require("unit.lib")
+local util = require("rex-agent-resume.util")
+local install = require("rex-agent-resume.install")
+local eq, root = t.eq, t.root
+
+local home = util.home()
+local function write(path, text) util.write_file(path, text) end
+local claude_before = '{\n  "zeta": 1,\n  "hooks": {\n    "SessionStart": [\n      {\n        "hooks": [\n          {\n            "type": "command",\n            "command": "other"\n          }\n        ]\n      }\n    ]\n  },\n  "alpha": 2\n}\n'
+write(home .. "/.claude/settings.json", claude_before)
+write(home .. "/.kimi-code/config.toml", 'model = "k2"\n')
+write(home .. "/.codex/config.toml", '[features] # experimental\ncodex_hooks = true\nother = true\n\n[ui]\nx = 1\n')
+util.mkdir_p(home .. "/.grok")
+util.mkdir_p(home .. "/.pi/agent")
+util.mkdir_p(home .. "/.config/kilo")
+write(home .. "/.config/opencode/tui.jsonc", '{\n  "theme": "x",\n  "plugin": ["mine"]\n}\n')
+write(home .. "/.hermes/config.yaml", "model: m\nplugins:\n  enabled:\n    - other\n  disabled: []\n")
+local rex_config = os.getenv("REX_CONFIG")
+os.remove(rex_config)
+
+install.run(root, true)
+local claude_after = util.read_file(home .. "/.claude/settings.json")
+local settings = rex.json.decode(claude_after)
+eq(#settings.hooks.SessionStart, 2, "claude hook added next to the existing one")
+eq(settings.hooks.SessionStart[2].hooks[1].command, util.shell_quote(root .. "/bin/rex-agent-resume-hook") .. " claude", "claude hook command")
+eq(claude_after:find('"zeta"') < claude_after:find('"alpha"'), true, "key order kept")
+eq(util.read_file(home .. "/.kimi-code/config.toml"):find('event = "SessionStart"', 1, true) ~= nil, true, "kimi block added")
+eq(util.read_file(home .. "/.codex/config.toml"), '[features] # experimental\nhooks = true\nother = true\n\n[ui]\nx = 1\n', "codex hooks feature on, old key dropped")
+eq(rex.json.decode(util.read_file(home .. "/.codex/hooks.json")).hooks.SessionStart[1].hooks[1].timeout, 10, "codex hook added")
+eq(util.exists(home .. "/.grok/hooks/rex-agent-resume.json"), true, "grok gets its own file")
+eq(util.exists(home .. "/.factory/settings.json"), false, "agents without a config dir are left alone")
+local hook_path = root .. "/bin/rex-agent-resume-hook"
+local pi_plugin = util.read_file(home .. "/.pi/agent/extensions/rex-agent-resume.ts") or ""
+eq(pi_plugin:find('const HOOK = "' .. hook_path .. '";', 1, true) ~= nil, true, "pi extension calls our hook")
+eq(util.exists(home .. "/.config/kilo/plugin/rex-agent-resume.js"), true, "kilo plugin placed")
+eq(util.exists(home .. "/.omp/agent/extensions/rex-agent-resume-omp.ts"), false, "omp is skipped without its directory")
+eq(util.exists(home .. "/.config/opencode/plugins/rex-agent-resume.js"), true, "opencode server plugin placed")
+eq(util.exists(home .. "/.config/opencode/rex-agent-resume-opencode/tui.js"), true, "opencode 2 plugin directory placed")
+eq(table.concat(rex.json.decode(util.read_file(home .. "/.config/opencode/tui.jsonc")).plugin, ","), "mine,./rex-agent-resume-tui.js", "opencode tui plugin registered after the user's")
+eq(table.concat(rex.json.decode(util.read_file(home .. "/.config/opencode/cli.json")).plugins, ","), "./rex-agent-resume-opencode", "opencode 2 plugin registered")
+eq(util.read_file(home .. "/.hermes/config.yaml"), "model: m\nplugins:\n  enabled:\n    - rex-agent-resume\n    - other\n  disabled: []\n", "hermes plugin enabled")
+eq(util.exists(home .. "/.hermes/plugins/rex-agent-resume/__init__.py"), true, "hermes plugin placed")
+eq(util.read_file(rex_config):find("dofile(", 1, true) ~= nil, true, "rex config loads rex-agent-resume")
+
+install.run(root, true)
+eq(util.read_file(home .. "/.claude/settings.json"), claude_after, "reinstall changes nothing")
+
+local s2 = rex.json.decode(util.read_file(home .. "/.claude/settings.json"))
+local group = s2.hooks.SessionStart[2]
+group.hooks[#group.hooks + 1] = { type = "command", command = "my-own-hook" }
+util.write_file(home .. "/.claude/settings.json", rex.json.encode(s2))
+
+write(home .. "/.hermes/plugins/rex-agent-resume/__pycache__/__init__.cpython-315.pyc", "x")
+install.run(root, false)
+local claude_back = rex.json.decode(util.read_file(home .. "/.claude/settings.json")).hooks.SessionStart
+eq(claude_back[1].hooks[1].command, "other", "uninstall keeps the other hook")
+eq(#claude_back[2].hooks, 1, "and the user's hook in our group")
+eq(claude_back[2].hooks[1].command, "my-own-hook", "while ours is gone")
+eq(util.read_file(home .. "/.kimi-code/config.toml"), 'model = "k2"\n', "kimi config restored")
+eq(util.read_file(home .. "/.codex/hooks.json"), "{}\n", "codex hooks emptied")
+eq(util.exists(home .. "/.grok/hooks/rex-agent-resume.json"), false, "grok file removed")
+eq(util.exists(rex_config), false, "rex config removed when nothing else was in it")
+eq(util.exists(home .. "/.pi/agent/extensions/rex-agent-resume.ts"), false, "pi extension removed")
+eq(util.exists(home .. "/.config/opencode/rex-agent-resume-opencode"), false, "opencode 2 plugin directory removed")
+eq(util.exists(home .. "/.config/opencode/cli.json"), false, "cli.json we created is removed")
+eq(rex.json.decode(util.read_file(home .. "/.config/opencode/tui.jsonc")).plugin[1], "mine", "opencode keeps the user's plugin")
+eq(#rex.json.decode(util.read_file(home .. "/.config/opencode/tui.jsonc")).plugin, 1, "and drops ours")
+eq(util.read_file(home .. "/.hermes/config.yaml"), "model: m\nplugins:\n  enabled:\n    - other\n  disabled: []\n", "hermes config restored")
+eq(util.exists(home .. "/.hermes/plugins/rex-agent-resume"), false, "hermes plugin directory removed")
+eq(util.read_file(home .. "/.claude/settings.json.bak-rex-agent-resume"), claude_before, "original kept as backup")
+
+local compact = '{"model":"x","hooks":{"SessionStart":[]}}'
+write(home .. "/.qoder/settings.json", compact)
+install.run(root, false)
+eq(util.read_file(home .. "/.qoder/settings.json"), compact, "file without our hook is not touched")
+
+write(home .. "/.codex/config.toml", 'features.hooks = false\n')
+eq((pcall(install.apply, "codex", root, true)), false, "codex dotted features key is refused")
+eq(util.read_file(home .. "/.codex/config.toml"), 'features.hooks = false\n', "and left untouched")
+
+local function yaml(text, enable) return install.hermes_yaml(text, "ours", enable) end
+eq(yaml("", true), "plugins:\n  enabled:\n    - ours\n", "hermes yaml created")
+eq(yaml("a: 1\n", true), "a: 1\nplugins:\n  enabled:\n    - ours\n", "hermes plugins block appended")
+eq(yaml("plugins: [x, 'y']\n", true), "plugins: [ours, x, 'y']\n", "flat flow list")
+eq(yaml("plugins: [ours, x]\n", false), "plugins: [x]\n", "flat flow list removal")
+eq(yaml("plugins:\n- x\nb: 2\n", true), "plugins:\n- ours\n- x\nb: 2\n", "indentless flat list")
+eq(yaml("plugins:\n  disabled:\n    - x\n", true), "plugins:\n  enabled:\n    - ours\n  disabled:\n    - x\n", "enabled added beside disabled")
+eq(yaml("plugins:\n  enabled: [] # mine\n", true), "plugins:\n  enabled: [ours] # mine\n", "empty flow list keeps its comment")
+eq(yaml("plugins:\n  enabled:\n    - \"ours\"\n", true), "plugins:\n  enabled:\n    - \"ours\"\n", "quoted entry already there")
+eq(yaml("plugins:\n  enabled:\n    - ours\n", false), "plugins:\n  enabled: []\n", "last entry removed leaves an empty list")
+eq(yaml("plugins:\n  disabled:\n    - ours\n", false), "plugins:\n  disabled:\n    - ours\n", "disabled list is not ours to edit")

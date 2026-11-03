@@ -1,0 +1,9 @@
+#!/usr/bin/env node
+const args = process.argv.slice(2);
+const i = args.indexOf("--session");
+const id = i >= 0 ? args[i + 1] : `ses_${process.pid}`;
+import(`${process.env.E2E_HOME}/.config/kilo/plugin/rex-agent-resume.js`).then(async (m) => {
+  const hooks = await m.RexAgentResumePlugin();
+  await hooks.event({ event: { type: "session.created", properties: { sessionID: id } } });
+});
+setInterval(() => {}, 1 << 30);

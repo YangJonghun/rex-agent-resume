@@ -1,0 +1,10 @@
+#!/usr/bin/env node
+const args = process.argv.slice(2);
+const i = args.indexOf("--session");
+const file = i >= 0 ? args[i + 1] : `${process.env.E2E_TMP}/pi-${process.pid}.jsonl`;
+const handlers = {};
+import(`${process.env.E2E_HOME}/.pi/agent/extensions/rex-agent-resume.ts`).then((m) => {
+  m.default({ on: (name, fn) => { handlers[name] = fn; }, events: { on() {} } });
+  handlers.session_start({ reason: "startup" }, { mode: "tui", sessionManager: { getSessionFile: () => file } });
+});
+setInterval(() => {}, 1 << 30);
