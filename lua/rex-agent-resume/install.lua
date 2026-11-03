@@ -20,10 +20,17 @@ local function quote_toml(s) return '"' .. s:gsub("\\", "\\\\"):gsub('"', '\\"')
 
 local function is_dir(path) return util.run({ "test", "-d", path }).ok end
 
-local function overwrite_in_place(path, old, new)
+-- Install backs up the original once. Without a backup, install created the file, so
+-- uninstall deletes it once nothing but ours was in it.
+local function overwrite_in_place(path, old, new, install, empty)
   if old == new then return false end
-  if old and not util.exists(path .. ".bak-rex-agent-resume") then
-    local f = assert(io.open(path .. ".bak-rex-agent-resume", "w"))
+  local backup = path .. ".bak-rex-agent-resume"
+  if not install and empty and not util.exists(backup) then
+    os.remove(path)
+    return true
+  end
+  if install and old and not util.exists(backup) then
+    local f = assert(io.open(backup, "w"))
     f:write(old)
     f:close()
   end
@@ -31,6 +38,13 @@ local function overwrite_in_place(path, old, new)
   local f = assert(io.open(path, "w"))
   f:write(new)
   f:close()
+  return true
+end
+
+local function only_defaults(text, defaults)
+  for key, value in pairs(rex.json.decode(text)) do
+    if not (defaults and defaults[key] == value) then return false end
+  end
   return true
 end
 
@@ -52,7 +66,8 @@ local function edit_json(path, target, command, install)
     os.remove(path .. ".bak-rex-agent-resume")
     return "removed"
   end
-  return overwrite_in_place(path, old, r.stdout) and (install and "installed" or "removed") or "unchanged"
+  return overwrite_in_place(path, old, r.stdout, install, only_defaults(r.stdout, target.defaults))
+    and (install and "installed" or "removed") or "unchanged"
 end
 
 local function strip_block(text, begin_line, end_line)
@@ -71,7 +86,7 @@ local function edit_marked(path, begin_line, end_line, body, install)
     new = new .. (new ~= "" and not new:find("\n$") and "\n" or "") .. (new ~= "" and "\n" or "")
       .. begin_line .. "\n" .. body .. end_line .. "\n"
   end
-  return overwrite_in_place(path, old, new) and (install and "installed" or "removed") or "unchanged"
+  return overwrite_in_place(path, old, new, install, new == "") and (install and "installed" or "removed") or "unchanged"
 end
 
 local JQ_PLUGIN_LIST = [[
@@ -91,11 +106,7 @@ local function edit_plugin_list(path, key, spec, install)
   if not r.ok then
     error("cannot edit " .. path .. " (not plain JSON?); add \"" .. spec .. "\" to its \"" .. key .. "\" list yourself: " .. r.stderr)
   end
-  if not install and r.stdout:match("^%s*{%s*}%s*$") and not util.exists(path .. ".bak-rex-agent-resume") then
-    os.remove(path)
-    return true
-  end
-  return overwrite_in_place(path, old, r.stdout)
+  return overwrite_in_place(path, old, r.stdout, install, r.stdout:match("^%s*{%s*}%s*$"))
 end
 
 local function opencode_state_dir()
@@ -229,11 +240,7 @@ local function register_hermes(dir, name, install)
   local old = util.read_file(path)
   if not install and not (old and old:find(name, 1, true)) then return false end
   local new = M.hermes_yaml(old or "", name, install)
-  if not install and new == "plugins:\n  enabled: []\n" and not util.exists(path .. ".bak-rex-agent-resume") then
-    os.remove(path)
-    return true
-  end
-  return overwrite_in_place(path, old, new)
+  return overwrite_in_place(path, old, new, install, new == "plugins:\n  enabled: []\n")
 end
 
 local function js_string(s)
@@ -307,7 +314,7 @@ local function enable_codex_hooks(path)
     lines = kept
   end
   local new = table.concat(lines, "\n"):gsub("^\n+", "") .. "\n"
-  overwrite_in_place(path, old ~= "" and old or nil, new)
+  overwrite_in_place(path, old ~= "" and old or nil, new, true)
 end
 
 local function apply_plugin(root, name, dir, target, hook, install)
@@ -336,7 +343,14 @@ function M.apply(name, root, install)
     return edit_marked(path, "# >>> rex-agent-resume kimi integration", "# <<< rex-agent-resume kimi integration", body, install), path
   end
   local result = edit_json(path, target, command, install)
-  if target.codex_features and install then enable_codex_hooks(dir .. "/config.toml") end
+  if target.codex_features then
+    local config = dir .. "/config.toml"
+    if install then
+      enable_codex_hooks(config)
+    elseif util.read_file(config) == "[features]\nhooks = true\n" and not util.exists(config .. ".bak-rex-agent-resume") then
+      os.remove(config)
+    end
+  end
   return result, path
 end
 
@@ -352,9 +366,7 @@ function M.edit_rex_config(root, install)
     .. "dofile(" .. string.format("%q", root .. "/plugin.lua") .. ")\n"
     .. (util.resume_on() and "" or "-- Agent resume on startup is off.\n")
   local path = M.rex_config_path()
-  local result = edit_marked(path, "-- >>> rex-agent-resume", "-- <<< rex-agent-resume", body, install)
-  if not install and util.read_file(path) == "" then os.remove(path) end
-  return result, path
+  return edit_marked(path, "-- >>> rex-agent-resume", "-- <<< rex-agent-resume", body, install), path
 end
 
 function M.run(root, install)
