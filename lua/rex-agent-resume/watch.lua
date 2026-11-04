@@ -283,26 +283,31 @@ function M.resume_now()
   M.resume(server)
 end
 
+-- watch.lock is a symlink to "<pid> <server instance>", so ln -s takes it atomically.
 local LOCK = "watch.lock"
 
-function M.lock_holder()
-  local pid = tonumber((util.run({ "readlink", util.path(LOCK) }).stdout:match("%d+")))
-  local command = pid and util.run({ "ps", "-o", "command=", "-p", tostring(pid) }).stdout or ""
-  return command:find("mode=watch", 1, true) and pid or nil
+local function lock_holder()
+  local pid, instance = util.run({ "readlink", util.path(LOCK) }).stdout:match("^(%d+)%s*(%S*)")
+  local command = pid and util.run({ "ps", "-o", "command=", "-p", pid }).stdout or ""
+  if command:find("mode=watch", 1, true) then return tonumber(pid), instance end
 end
 
 function M.stop()
-  local holder = M.lock_holder()
+  local holder = lock_holder()
   if holder then util.run({ "kill", tostring(holder) }) end
   os.remove(util.path(LOCK))
 end
 
-local function take_lock()
+local function take_lock(instance)
   local own = util.run({ "sh", "-c", "echo $PPID" }).stdout:match("%d+")
   for _ = 1, 2 do
-    if util.run({ "ln", "-s", own, util.path(LOCK) }).ok then return true end
-    local holder = M.lock_holder()
-    if holder then return false, holder end
+    if util.run({ "ln", "-s", own .. " " .. instance, util.path(LOCK) }).ok then return true end
+    local holder, held_for = lock_holder()
+    if holder and held_for == instance then return false, holder end
+    if holder then
+      util.log("taking over from the watcher of server " .. (held_for ~= "" and held_for or "?") .. " (pid " .. holder .. ")")
+      util.run({ "kill", tostring(holder) })
+    end
     os.remove(util.path(LOCK))
   end
   return false
@@ -316,7 +321,7 @@ function M.watch()
     return rex.stop(0)
   end
   util.mkdir_p(util.path("snapshots"))
-  local locked, holder = take_lock()
+  local locked, holder = take_lock(server.instance)
   if not locked then
     util.log("watcher already running (pid " .. tostring(holder) .. ")")
     return rex.stop(0)
