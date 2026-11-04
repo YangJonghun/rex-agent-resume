@@ -50,7 +50,7 @@ wait_for() {
 mkdir -p "$home/.factory" "$home/.pi/agent" "$home/.config/kilo" "$home/.hermes" "$state"
 : >"$tmp/init.lua"
 # Pane shells read this instead of your zsh files, so the stand-ins run with the node and python3 found here.
-printf 'export PATH="$E2E_PATH:$PATH"\n' >"$tmp/.zprofile"
+printf 'export PATH="$E2E_PATH:$PATH"\n[ -e "$E2E_TMP/hold-new-shells" ] && sleep 8\n' >"$tmp/.zprofile"
 
 agents="droid pi kilo hermes notes"
 count=5
@@ -110,6 +110,25 @@ wait_for 20 server_gone
 restart
 check "$(wait_for 40 resumed 2 && echo ok)" "after server.stop: resumed $count"
 expect_running "after server.stop"
+wait_for 20 snapshot_full >/dev/null
+
+resume_starts() { grep -c "resume: snapshot" "$state/rex-agent-resume.log" 2>/dev/null; }
+starting_resume() { [ "$(resume_starts)" -gt "$started" ]; }
+kill_server_while_it_resumes() {
+  started=$(resume_starts)
+  : >"$tmp/hold-new-shells"
+  kill -9 "$(server_pid)"
+  wait_for 20 server_gone
+  restart
+  wait_for 40 starting_resume
+  kill -9 "$(server_pid)"
+  wait_for 20 server_gone
+  rm -f "$tmp/hold-new-shells"
+}
+kill_server_while_it_resumes
+restart
+check "$(wait_for 40 resumed 3 && echo ok)" "after a crash mid-resume: the next server resumed $count"
+expect_running "after a crash mid-resume"
 
 [ "$failures" -gt 0 ] && tail -20 "$state/rex-agent-resume.log"
 echo "e2e: $checks checks, $failures failure(s)"
