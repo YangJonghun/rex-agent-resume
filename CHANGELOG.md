@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0-beta.3](https://github.com/YangJonghun/rex-agent-resume/compare/v0.1.0-beta.2...v0.1.0-beta.3) (2026-11-04)
+
+
+### Bug Fixes
+
+* let a new server's watcher take over from one whose server died ([9118a04](https://github.com/YangJonghun/rex-agent-resume/commit/9118a043e48bd27eadf16469d3a918d2fdc7c1ed))
+
 ## [0.1.0-beta.2](https://github.com/YangJonghun/rex-agent-resume/compare/v0.1.0-beta.1...v0.1.0-beta.2) (2026-11-03)
 
 
