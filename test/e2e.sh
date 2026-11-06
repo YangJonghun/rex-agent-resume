@@ -149,6 +149,19 @@ type_before_the_prompt() {
 type_before_the_prompt
 check "$(wait_for 40 resumed 4 && echo ok)" "with text typed before the prompt: resumed $count"
 expect_running "with text typed before the prompt"
+wait_for 20 snapshot_full >/dev/null
+
+droid_ids() { sed -n 's/.*"agent":"droid".*"id":"\([^"]*\)".*/\1/p' "$state"/agents/*.json 2>/dev/null; }
+new_droid() { droid_ids | grep -vx "$droid_id" | head -1; }
+has_new_droid() { [ -n "$(new_droid)" ]; }
+in_rex do "$root/test/fixtures/open-panes.lua" commands=droid >/dev/null
+wait_for 40 has_new_droid
+new_id=$(new_droid)
+sleep 0.5
+kill -9 "$(server_pid)"
+wait_for 20 server_gone
+restart
+check "$(wait_for 40 running droid "--resume $new_id" && echo ok)" "killed half a second after its hook ran: droid --resume $new_id"
 
 [ "$failures" -gt 0 ] && tail -20 "$state/rex-agent-resume.log"
 echo "e2e: $checks checks, $failures failure(s)"
