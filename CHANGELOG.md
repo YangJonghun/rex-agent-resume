@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0-beta.4](https://github.com/YangJonghun/rex-agent-resume/compare/v0.1.0-beta.3...v0.1.0-beta.4) (2026-11-06)
+
+
+### Bug Fixes
+
+* clear text typed in a pane before typing its resume line ([78c390e](https://github.com/YangJonghun/rex-agent-resume/commit/78c390e3ab13393b059e88f48de469d3c767d704))
+
 ## [0.1.0-beta.3](https://github.com/YangJonghun/rex-agent-resume/compare/v0.1.0-beta.2...v0.1.0-beta.3) (2026-11-04)
 
 
