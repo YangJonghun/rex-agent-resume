@@ -66,7 +66,7 @@ With Claude Code as the example, it works in this order:
 
 1. **At install.** Our script (`rex-agent-resume-hook`) is added to Claude Code's session-start hook.
 2. **When you start or switch a conversation.** Claude Code runs the hook with the session id. Our script writes down "this pane runs `claude`, session `abc`". A new conversation overwrites it.
-3. **While the server runs.** A watcher inside the Rex server saves the list of panes that have an agent in front: 2 seconds after a change in a pane, and every 5 minutes anyway. A pane where you quit the agent and are back at the shell drops off the list.
+3. **While the server runs.** A watcher inside the Rex server saves the list of panes that have an agent in front: right after an agent's hook runs, 2 seconds after a change in a pane, and every minute anyway. A pane where you quit the agent and are back at the shell drops off the list.
 4. **When the server stops.** Nothing happens. The list saved in step 3 is what remains.
 5. **When the server starts again.** Rex brings the panes back as empty shells, and the watcher reads the saved list and types `claude --resume abc` into each pane.
 
