@@ -13,6 +13,10 @@ local SAVE_EVERY = 300
 local STAMP_EVERY = 2
 local SHELL_WAIT_TRIES, SHELL_WAIT_STEP = 20, 0.25
 local LAUNCH_GAP = 0.1
+-- Ctrl-E then Ctrl-U empties what someone already typed in the pane, at a zsh or bash prompt
+-- (Ctrl-Y brings it back) or before the first one; the space keeps the line out of a history
+-- that ignores such lines.
+local CLEAR_LINE = "\5\21 "
 
 -- server.status gives UTC timestamps; os.time reads a table as local time.
 local function parse_utc(text)
@@ -229,7 +233,7 @@ function M.resume(server)
         block_id = entry.block_id, session_id = launch.session_id, cwd = entry.cwd, updated_at = os.time(),
       })
       local line = M.command_line(launch.command, entry.cwd, shell.cwd, strip)
-      rex.block.call(util.TERMINAL, "write", { block_id = entry.block_id, session_id = launch.session_id, data = line .. "\r" })
+      rex.block.call(util.TERMINAL, "write", { block_id = entry.block_id, session_id = launch.session_id, data = CLEAR_LINE .. line .. "\r" })
       count = count + 1
       rex.sleep(LAUNCH_GAP)
     else
