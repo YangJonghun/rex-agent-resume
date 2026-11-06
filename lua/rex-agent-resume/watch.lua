@@ -9,8 +9,8 @@ local UNCONFIRMED_RESUME_TTL = 60
 local RECORD_TTL = 7 * 24 * 3600
 local RESUME_ONLY_WITHIN = 120
 local SAVE_DELAY = 2
-local SAVE_EVERY = 300
-local STAMP_EVERY = 2
+local RECORDED_BATCH_WINDOW = 0.1
+local SAVE_EVERY = 60
 local SHELL_WAIT_TRIES, SHELL_WAIT_STEP = 20, 0.25
 local LAUNCH_GAP = 0.1
 -- Ctrl-E then Ctrl-U empties what someone already typed in the pane, at a zsh or bash prompt
@@ -342,11 +342,9 @@ function M.watch()
   ok, err = pcall(M.discover_running, server)
   if not ok then util.log("discovery failed: " .. tostring(err)) end
 
-  local timer, last = nil, nil
-  local stamp = util.read_file(util.path("agents.stamp"))
+  local pending, last = {}, nil
 
   local function save()
-    timer = nil
     local snap = M.take_snapshot(server)
     local key = fingerprint(snap)
     if key == last then return end
@@ -355,8 +353,9 @@ function M.watch()
   end
 
   local function schedule_once(delay)
-    if timer then return end
-    timer = rex.after(delay, function()
+    if pending[delay] then return end
+    pending[delay] = rex.after(delay, function()
+      pending[delay] = nil
       local ok2, err2 = pcall(save)
       if not ok2 then util.log("save failed: " .. tostring(err2)) end
     end)
@@ -374,13 +373,14 @@ function M.watch()
   for _, name in ipairs({ "session_view_changed", "block_created", "block_closed", "session_destroyed" }) do
     rex.on(name, function() schedule_once(SAVE_DELAY) end)
   end
-  rex.every(STAMP_EVERY, function()
-    local now = util.read_file(util.path("agents.stamp"))
-    if now ~= stamp then
-      stamp = now
-      schedule_once(1)
+  rex.on("client_perform_requested", function(_, request)
+    if request.action ~= util.RECORDED_ACTION then
+      return rex.call("client.reply", { call_id = request.call_id, error = { code = "not_supported", message = "no such action" } })
     end
+    rex.call("client.reply", { call_id = request.call_id, result = true })
+    schedule_once(RECORDED_BATCH_WINDOW)
   end)
+  rex.call("client.set_label", { label = util.WATCHER_LABEL })
   rex.every(SAVE_EVERY, function() schedule_once(0) end)
   rex.after(UNCONFIRMED_RESUME_TTL + 1, function() schedule_once(0) end)
   schedule_once(0)

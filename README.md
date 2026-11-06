@@ -124,7 +124,7 @@ if (process.env.REX_BLOCK) {
 
 - **Only the latest per pane.** Starting a new conversation or switching sessions in a pane replaces the earlier record. Open earlier conversations from the agent's own resume list, such as `claude --resume`.
 - **Agents running before the install.** Claude Code, and agents with a session id on their command line, are picked up right away. Restart the others once after installing.
-- **A few seconds of blind spot.** If the server dies within about 3 seconds after an agent starts, that agent is not remembered. Within about 2 seconds after you quit an agent, it reopens anyway.
+- **A short blind spot.** If the server dies before an agent's hook has run, or within a moment after, that agent is not remembered. If it dies within about 2 seconds after you quit an agent, the agent reopens anyway.
 - **No screen state.** Scrollback, cursor position, and half-typed input do not come back.
 - **Typing before the agent reopens.** Anything you type into the pane before then is erased. In zsh and bash, press Ctrl-Y to get it back. If your shell skips commands that start with a space, the resume command is not saved to its history.
 

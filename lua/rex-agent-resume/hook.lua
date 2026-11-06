@@ -23,6 +23,15 @@ local function record_key(rec)
   return tostring(key) .. "|" .. tostring(rec.pending and rec.pending.id)
 end
 
+local function ask_watcher_to_save()
+  local list = rex.call("client.list")
+  for _, client in ipairs(list and list.clients or {}) do
+    if client.info and client.info.label == util.WATCHER_LABEL then
+      rex.call("client.perform", { client_id = client.client_id, action = util.RECORDED_ACTION, timeout_ms = 500 })
+    end
+  end
+end
+
 local function record(ppid, procs, pane, report)
   local process = util.process(pane.block_id, pane.session_id)
   local fg = process and process.foreground
@@ -37,7 +46,7 @@ local function record(ppid, procs, pane, report)
   if old and old.pid == owner and record_key(old) == record_key(rec) then return true end
   rec.block_id, rec.session_id, rec.cwd, rec.updated_at = pane.block_id, pane.session_id, report.cwd or rec.cwd or fg.cwd, os.time()
   util.write_json(path, rec)
-  util.write_file(util.path("agents.stamp"), os.time() .. " " .. pane.block_id .. " " .. record_key(rec))
+  ask_watcher_to_save()
   return true
 end
 

@@ -4,6 +4,8 @@ math.randomseed(os.time() + math.floor(os.clock() * 1e6))
 
 M.TERMINAL = "com.superlogical.terminal"
 M.LOG_PREFIX = "[rex-agent-resume] "
+M.WATCHER_LABEL = "rex-agent-resume watcher"
+M.RECORDED_ACTION = "agent_resume_recorded"
 
 function M.home()
   return os.getenv("REX_AGENT_RESUME_HOME") or os.getenv("HOME")
