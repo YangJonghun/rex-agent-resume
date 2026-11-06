@@ -114,6 +114,7 @@ if (process.env.REX_BLOCK) {
 
 - **A server started with `--restore=false`.** Rex does not bring the panes back, so rex-agent-resume does nothing. The same goes for Rex below API revision 8.
 - **The first restart after updating from a Rex below API revision 8.** That server did not save panes, so none come back. It works from the next restart.
+- **A shell prompt in vi command mode.** The resume command does not run, so the agent does not reopen.
 - **Codex without `--no-daemon`.** Codex sessions reopen only when Codex runs as `codex --no-daemon`. Otherwise Codex runs the session in its shared background server, outside the pane, so the session is not remembered.
 - **Programs that were not in front when the server stopped.** If you quit the agent and were back at the shell, it does not reopen.
 - **Sessions with no conversation yet.** A Claude Code or Codex session with no message sent has no transcript and would fail with "No conversation found", so it is skipped.
@@ -125,6 +126,7 @@ if (process.env.REX_BLOCK) {
 - **Agents running before the install.** Claude Code, and agents with a session id on their command line, are picked up right away. Restart the others once after installing.
 - **A few seconds of blind spot.** If the server dies within about 3 seconds after an agent starts, that agent is not remembered. Within about 2 seconds after you quit an agent, it reopens anyway.
 - **No screen state.** Scrollback, cursor position, and half-typed input do not come back.
+- **Typing before the agent reopens.** Anything you type into the pane before then is erased. In zsh and bash, press Ctrl-Y to get it back. If your shell skips commands that start with a space, the resume command is not saved to its history.
 
 **Environment**
 
