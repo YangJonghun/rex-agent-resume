@@ -113,7 +113,7 @@ if (process.env.REX_BLOCK) {
 **When nothing reopens**
 
 - **A server started with `--restore=false`.** Rex does not bring the panes back, so rex-agent-resume does nothing. The same goes for Rex below API revision 8.
-- **The first restart after updating Rex.** The previous server did not save panes, so none come back. It works from the next restart.
+- **The first restart after updating from a Rex below API revision 8.** That server did not save panes, so none come back. It works from the next restart.
 - **Codex without `--no-daemon`.** Codex sessions reopen only when Codex runs as `codex --no-daemon`. Otherwise Codex runs the session in its shared background server, outside the pane, so the session is not remembered.
 - **Programs that were not in front when the server stopped.** If you quit the agent and were back at the shell, it does not reopen.
 - **Sessions with no conversation yet.** A Claude Code or Codex session with no message sent has no transcript and would fail with "No conversation found", so it is skipped.
