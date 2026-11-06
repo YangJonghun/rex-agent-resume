@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0-beta.5](https://github.com/YangJonghun/rex-agent-resume/compare/v0.1.0-beta.4...v0.1.0-beta.5) (2026-11-06)
+
+
+### Bug Fixes
+
+* save the snapshot as soon as a hook records a session ([97f8ecc](https://github.com/YangJonghun/rex-agent-resume/commit/97f8ecc4e35d48f5373960dd16d12ebac7d5c089))
+
 ## [0.1.0-beta.4](https://github.com/YangJonghun/rex-agent-resume/compare/v0.1.0-beta.3...v0.1.0-beta.4) (2026-11-06)
 
 
