@@ -50,7 +50,12 @@ wait_for() {
 mkdir -p "$home/.factory" "$home/.pi/agent" "$home/.config/kilo" "$home/.hermes" "$state"
 : >"$tmp/init.lua"
 # Pane shells read this instead of your zsh files, so the stand-ins run with the node and python3 found here.
-printf 'export PATH="$E2E_PATH:$PATH"\n[ -e "$E2E_TMP/hold-new-shells" ] && sleep 8\n' >"$tmp/.zprofile"
+cat >"$tmp/.zprofile" <<'EOF'
+export PATH="$E2E_PATH:$PATH"
+[ -e "$E2E_TMP/hold-new-shells" ] && sleep 8
+[ -e "$E2E_TMP/hold-until-typed" ] && python3 -c 'import os, sys, time
+while os.path.exists(sys.argv[1]): time.sleep(0.05)' "$E2E_TMP/hold-until-typed"
+EOF
 
 agents="droid pi kilo hermes notes"
 count=5
@@ -129,6 +134,21 @@ kill_server_while_it_resumes
 restart
 check "$(wait_for 40 resumed 3 && echo ok)" "after a crash mid-resume: the next server resumed $count"
 expect_running "after a crash mid-resume"
+wait_for 20 snapshot_full >/dev/null
+
+type_before_the_prompt() {
+  started=$(resume_starts)
+  : >"$tmp/hold-until-typed"
+  kill -9 "$(server_pid)"
+  wait_for 20 server_gone
+  restart
+  wait_for 40 starting_resume
+  in_rex do "$root/test/fixtures/type-in-panes.lua" text=half-typed >/dev/null
+  rm -f "$tmp/hold-until-typed"
+}
+type_before_the_prompt
+check "$(wait_for 40 resumed 4 && echo ok)" "with text typed before the prompt: resumed $count"
+expect_running "with text typed before the prompt"
 
 [ "$failures" -gt 0 ] && tail -20 "$state/rex-agent-resume.log"
 echo "e2e: $checks checks, $failures failure(s)"
