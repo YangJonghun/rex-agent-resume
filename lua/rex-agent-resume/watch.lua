@@ -79,6 +79,7 @@ function M.take_snapshot(server)
         out[#out + 1] = {
           block_id = pane.block_id, where = pane.where, agent = rec.agent, id = rec.id, argv = rec.argv,
           pending = rec.pending, cwd = rec.cwd or fg.cwd,
+          session_label = pane.session_label, window_index = pane.window_index, block_index = pane.block_index,
         }
       end
     end
@@ -145,11 +146,22 @@ function M.running_keys(procs, started)
 end
 
 function M.plan_resume(snap, panes, running)
-  local by_block, claimed, launches, lines = {}, {}, {}, {}
-  for _, pane in ipairs(panes) do by_block[pane.block_id] = pane end
+  local by_block, by_position, claimed, launches, lines = {}, {}, {}, {}, {}
+  for _, pane in ipairs(panes) do
+    by_block[pane.block_id] = pane
+    if pane.session_label and pane.window_index then
+      by_position[pane.session_label .. "\0" .. tostring(pane.window_index) .. "\0" .. tostring(pane.block_index or 0)] = pane
+    end
+  end
   for _, a in ipairs(snap.agents or {}) do
     local label = agents.label(a) .. " " .. a.block_id .. " (" .. (a.where or "?") .. ")"
     local pane = by_block[a.block_id]
+    -- A server restart or upgrade regenerates block ids; match by position instead and
+    -- rewrite the entry so the resume below addresses the pane that is actually there.
+    if not pane and a.session_label and a.window_index then
+      pane = by_position[a.session_label .. "\0" .. tostring(a.window_index) .. "\0" .. tostring(a.block_index or 0)]
+      if pane then a.block_id = pane.block_id end
+    end
     local argv, key = agents.resume_of(a)
     if not pane then
       lines[#lines + 1] = "skip " .. label .. ": pane is not on this server"

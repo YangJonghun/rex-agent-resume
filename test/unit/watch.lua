@@ -32,6 +32,25 @@ eq(table.concat(watch.inherited_env(env({ CLAUDE_CODE_CHILD_SESSION = "1" })), "
 local _, gone = watch.plan_resume({ agents = { { block_id = "block:a", agent = "claude", id = "c8", no_transcript = true } } }, panes, {})
 eq(gone[1], "skip claude block:a (?): its conversation has no transcript yet", "a conversation without a transcript is not resumed")
 
+-- A server restart or upgrade regenerates block ids; a snapshot entry whose block id is
+-- gone still resumes into the pane at the same position.
+local pos_panes = {
+  { block_id = "block:x", session_id = "s1", where = "proj / w1", session_label = "proj", window_index = 1, block_index = 1 },
+  { block_id = "block:y", session_id = "s1", where = "proj / w1", session_label = "proj", window_index = 1, block_index = 2 },
+  { block_id = "block:z", session_id = "s1", where = "proj / w2", session_label = "proj", window_index = 2, block_index = 1 },
+}
+local pos_snap = { agents = {
+  { block_id = "block:old-1", agent = "claude", id = "c9", session_label = "proj", window_index = 1, block_index = 1 },
+  { block_id = "block:old-2", agent = "claude", id = "c10", session_label = "proj", window_index = 1, block_index = 2 },
+  { block_id = "block:old-3", agent = "claude", id = "c11", session_label = "proj", window_index = 2, block_index = 1 },
+} }
+local pl = watch.plan_resume(pos_snap, pos_panes, {})
+eq(#pl, 3, "positional fallback resumes every pane whose block id changed")
+eq(pl[1] and pl[1].entry.block_id, "block:x", "fallback rewrites the entry to the new block id")
+eq(pl[2] and pl[2].entry.block_id, "block:y", "fallback distinguishes blocks within a window")
+eq(pl[3] and pl[3].entry.block_id, "block:z", "fallback distinguishes windows by index")
+eq(pl[1] and pl[1].session_id, "s1", "fallback keeps the matched pane's session id")
+
 local hsnap = { agents = {
   { block_id = "block:a", argv = { "pi", "--session", "/s/x" } },
   { block_id = "block:b", argv = { "vim", "notes.md" } },

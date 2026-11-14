@@ -155,13 +155,18 @@ function M.terminal_panes()
   local panes = {}
   for _, session in ipairs(rex.call("session.list").sessions or {}) do
     local view = M.session_view(session.session_id)
-    for _, window in ipairs(view and view.windows or {}) do
+    for wi, window in ipairs(view and view.windows or {}) do
+      local bi = 0
       for _, layer in ipairs(window.layers or {}) do
         for _, block in ipairs(layer.blocks or {}) do
           if block.creator_name == M.TERMINAL then
+            bi = bi + 1
             panes[#panes + 1] = {
               block_id = block.block_id,
               session_id = session.session_id,
+              session_label = session.label or "?",
+              window_index = wi,
+              block_index = bi,
               where = (session.label or "?") .. " / " .. (window.label or "?"),
             }
           end
