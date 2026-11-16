@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-macOS-666666?labelColor=333333" alt="Platform: macOS" />
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-666666?labelColor=333333" alt="Platform: macOS | Linux" />
 </p>
 
 # rex-agent-resume
@@ -26,7 +26,7 @@ rex-agent-resume은 패널마다 무엇이 돌고 있었는지 기억해 뒀다�
    rex api call server.status | jq .api_revision
    ```
 
-2. 설치하세요. 설치된 에이전트를 찾아 연결하고, Rex에도 연결해요.
+2. 설치하세요. 설치된 에이전트를 찾아 연결하고, Rex에도 연결해요. Linux에서는 [Rex 서버](https://www.superlogical.com/rex/docs/linux/installation)가 도는 기기에서 실행하세요.
 
    ```sh
    curl -fsSL https://raw.githubusercontent.com/YangJonghun/rex-agent-resume/main/install.sh | sh
@@ -40,7 +40,7 @@ rex-agent-resume은 패널마다 무엇이 돌고 있었는지 기억해 뒀다�
 curl -fsSL https://raw.githubusercontent.com/YangJonghun/rex-agent-resume/main/install.sh | REX_AGENT_RESUME_REF=v0.1.0-beta.1 sh
 ```
 
-`jq`가 필요한데, macOS에는 `/usr/bin/jq`가 기본으로 있어요.
+`jq`가 필요해요. macOS에는 `/usr/bin/jq`가 기본으로 있고, Linux에서는 패키지 관리자로 설치하세요.
 
 ## 사용법
 
@@ -130,8 +130,8 @@ if (process.env.REX_BLOCK) {
 
 **환경**
 
-- **Rex는 앱에서 시작하세요.** Claude Code나 Codex 안에서 띄운 Rex 서버는 그 에이전트의 환경 변수를 모든 패널에 물려줘요. 그러면 Claude Code가 대화 기록을 저장하지 않아요. 다시 여는 에이전트는 그 변수를 빼고 띄우지만, 직접 띄우는 에이전트는 영향을 받아요.
-- **로컬 서버만.** 원격 Rex 호스트의 패널은 다시 열지 않아요.
+- **Rex는 앱에서, Linux에서는 서비스로 시작하세요.** Claude Code나 Codex 안에서 띄운 Rex 서버는 그 에이전트의 환경 변수를 모든 패널에 물려줘요. 그러면 Claude Code가 대화 기록을 저장하지 않아요. 다시 여는 에이전트는 그 변수를 빼고 띄우지만, 직접 띄우는 에이전트는 영향을 받아요.
+- **같은 기기의 서버만.** 원격 Rex 호스트에서 쓰려면 그 호스트에 rex-agent-resume을 설치하세요.
 
 ## 제거
 

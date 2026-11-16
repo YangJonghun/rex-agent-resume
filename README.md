@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-macOS-666666?labelColor=333333" alt="Platform: macOS" />
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-666666?labelColor=333333" alt="Platform: macOS | Linux" />
 </p>
 
 # rex-agent-resume
@@ -26,7 +26,7 @@ rex-agent-resume remembers what ran in each pane and starts it again in the same
    rex api call server.status | jq .api_revision
    ```
 
-2. Install. It finds the agents on this machine, connects them, and connects Rex.
+2. Install. It finds the agents on this machine, connects them, and connects Rex. On Linux, run it on the machine that runs the [Rex server](https://www.superlogical.com/rex/docs/linux/installation).
 
    ```sh
    curl -fsSL https://raw.githubusercontent.com/YangJonghun/rex-agent-resume/main/install.sh | sh
@@ -40,7 +40,7 @@ Run the same command again to update. To install a specific [release](https://gi
 curl -fsSL https://raw.githubusercontent.com/YangJonghun/rex-agent-resume/main/install.sh | REX_AGENT_RESUME_REF=v0.1.0-beta.1 sh
 ```
 
-It needs `jq`, which macOS ships at `/usr/bin/jq`.
+It needs `jq`. macOS ships it at `/usr/bin/jq`. On Linux, install it with your package manager.
 
 ## Usage
 
@@ -130,8 +130,8 @@ if (process.env.REX_BLOCK) {
 
 **Environment**
 
-- **Start Rex from the app.** A Rex server started from inside Claude Code or Codex passes their variables to every pane, and Claude Code then stops saving transcripts. Reopened agents start without those variables, but agents you start yourself in those panes are affected.
-- **Local server only.** Panes on remote Rex hosts are not reopened.
+- **Start Rex from the app, or on Linux from its service.** A Rex server started from inside Claude Code or Codex passes their variables to every pane, and Claude Code then stops saving transcripts. Reopened agents start without those variables, but agents you start yourself in those panes are affected.
+- **Only the server on the same machine.** For a remote Rex host, install rex-agent-resume on that host.
 
 ## Uninstall
 
