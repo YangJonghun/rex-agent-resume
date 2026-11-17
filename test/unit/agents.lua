@@ -32,6 +32,10 @@ eq(select(2, agents.parse(agents.specs.claude, { hook_event_name = "SessionStart
 eq(resume("copilot", "p1"), "copilot --resume=p1", "copilot resume")
 eq(resume("cursor", "k1"), "cursor-agent --resume k1", "cursor resume")
 eq(resume("antigravity-cli", "y1"), "agy --conversation y1", "antigravity resume")
+eq(resume("mastracode", "t1"), "mastracode resume t1", "mastracode resumes in its TUI")
+eq(select(2, agents.discover("mastracode resume t2", 7, files({}), no_env, "/h")), "t2", "running mastracode found from its resume command")
+eq(parse("mastracode", { hook_event_name = "SessionStart", session_id = "session-init", source = "startup" }), nil, "mastracode before its first thread is not recorded")
+eq(agents.merge_report({ agent = "mastracode", id = "t1", pid = 7 }, { agent = "mastracode", id = "t2", source = "thread_change" }, 7, true).id, "t2", "mastracode follows a new thread")
 eq(resume("letta", "default:a1"), "letta --conversation default --agent a1", "letta default resume")
 eq(resume("letta", "default:"), nil, "letta default without agent")
 

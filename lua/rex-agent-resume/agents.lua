@@ -62,6 +62,9 @@ function M.parse(spec, data, getenv)
     id = "default:" .. agent_id
   end
   if not valid_id(id) then return nil, "no valid session id" end
+  for _, placeholder in ipairs(spec.ignore_ids or {}) do
+    if id == placeholder then return nil, "placeholder id " .. id end
+  end
   local thread = spec.thread_env and text(getenv(spec.thread_env))
   if thread and thread ~= id then return nil, "child thread " .. thread end
   local source = first_text(data, { "source", "session_start_source" })
