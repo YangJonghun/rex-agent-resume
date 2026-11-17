@@ -37,6 +37,21 @@ rex.action{
 }
 
 rex.action{
+  name = "agent_resume_skip_approvals_toggle",
+  title = (util.skip_approvals_on() and "Stop Restoring" or "Restore") .. " Approval-Skipping Modes on Resume",
+  run = function(ctx)
+    local on = util.skip_approvals_on()
+    if on then
+      os.remove(util.path("skip-approvals"))
+    else
+      util.write_file(util.path("skip-approvals"), "")
+    end
+    reload_later(ctx)
+    return "Approval-skipping modes are " .. (on and "no longer" or "now") .. " restored on resume."
+  end,
+}
+
+rex.action{
   name = "agent_resume_uninstall",
   title = "Uninstall rex-agent-resume",
   run = function(ctx)

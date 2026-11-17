@@ -115,7 +115,7 @@ check "$(runs_exactly claude "--resume $claude_id --effort xhigh" && echo ok)" "
 check "$(runs_exactly kilo "--session $kilo_id" && echo ok)" "kilo started with --auto comes back without it by default"
 wait_for 20 snapshot_full >/dev/null
 
-: >"$state/skip-approvals"
+check "$(in_rex do agent_resume_skip_approvals_toggle >/dev/null && echo ok)" "the palette action turns on approval-skipping modes"
 "$rex" -S "$sock" api call server.stop >/dev/null 2>&1
 wait_for 20 server_gone
 restart
