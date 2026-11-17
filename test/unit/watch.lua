@@ -51,6 +51,23 @@ eq(pl[2] and pl[2].entry.block_id, "block:y", "fallback distinguishes blocks wit
 eq(pl[3] and pl[3].entry.block_id, "block:z", "fallback distinguishes windows by index")
 eq(pl[1] and pl[1].session_id, "s1", "fallback keeps the matched pane's session id")
 
+-- Two panes at the same position (sessions sharing a label) are ambiguous: skip, don't guess.
+local amb_panes = {
+  { block_id = "block:p", session_id = "s1", where = "Onboarding / w1", session_label = "Onboarding", window_index = 1, block_index = 1 },
+  { block_id = "block:q", session_id = "s2", where = "Onboarding / w1", session_label = "Onboarding", window_index = 1, block_index = 1 },
+}
+local amb_snap = { agents = {
+  { block_id = "block:old", agent = "claude", id = "c12", session_label = "Onboarding", window_index = 1, block_index = 1 },
+} }
+local alaunch, alines = watch.plan_resume(amb_snap, amb_panes, {})
+eq(#alaunch, 0, "ambiguous position is not resumed")
+eq(alines[1], "skip claude block:old (?): pane is not on this server", "ambiguous position is skipped, not guessed")
+
+-- A position-only change must still reach disk, so position is part of the fingerprint.
+local fp = watch.fingerprint
+eq(fp({ agents = { { block_id = "block:a", agent = "claude", id = "c1", where = "s / w1" } } }) == fp({ agents = { { block_id = "block:a", agent = "claude", id = "c1", where = "s / w1", session_label = "proj", window_index = 1, block_index = 1 } } }), false, "position is part of the fingerprint")
+eq(fp({ agents = { { block_id = "block:a", agent = "claude", id = "c1", where = "s / w1", session_label = "proj", window_index = 1, block_index = 1 } } }) == fp({ agents = { { block_id = "block:a", agent = "claude", id = "c1", where = "s / w1", session_label = "proj", window_index = 1, block_index = 2 } } }), false, "a block-index move changes the fingerprint")
+
 local hsnap = { agents = {
   { block_id = "block:a", argv = { "pi", "--session", "/s/x" } },
   { block_id = "block:b", argv = { "vim", "notes.md" } },
