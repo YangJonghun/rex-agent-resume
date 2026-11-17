@@ -21,6 +21,8 @@ function M.path(name) return M.state_dir() .. "/" .. name end
 
 function M.resume_on() return not M.exists(M.path("resume-off")) end
 
+function M.skip_approvals_on() return M.exists(M.path("skip-approvals")) end
+
 function M.record_path(block_id)
   return M.path("agents/" .. block_id:gsub("[:/]", "_") .. ".json")
 end
@@ -46,6 +48,20 @@ end
 function M.matches_file(pattern)
   if not pattern:find("*", 1, true) then return M.exists(pattern) end
   return M.run({ "sh", "-c", 'for f in $1; do [ -e "$f" ] && exit 0; done; exit 1', "sh", pattern }).ok
+end
+
+-- Transcripts can be tens of MB, so only the newest few lines holding needle are read.
+-- IFS is empty so a home with spaces still expands as one glob.
+function M.newest_records(pattern, needle)
+  local r = M.run({ "sh", "-c", 'IFS=; grep -hF -- "$1" $2 2>/dev/null | tail -n 50', "sh", needle, pattern })
+  local lines = {}
+  for line in (r.stdout or ""):gmatch("[^\n]+") do lines[#lines + 1] = line end
+  local records = {}
+  for i = #lines, 1, -1 do
+    local ok, value = pcall(rex.json.decode, lines[i])
+    if ok then records[#records + 1] = value end
+  end
+  return records
 end
 
 function M.mkdir_p(path)

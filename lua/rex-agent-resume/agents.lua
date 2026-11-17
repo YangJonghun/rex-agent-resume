@@ -150,6 +150,44 @@ function M.valid_argv(argv)
   return length <= MAX_COMMAND
 end
 
+local function valid_option(option)
+  if type(option) ~= "table" or type(option.args) ~= "table" or #option.args == 0 then return false end
+  for i, word in ipairs(option.args) do
+    if type(word) ~= "string" or word == "" or word:find("%c") then return false end
+    local is_flag = word:sub(1, 1) == "-"
+    if is_flag ~= (i == 1) then return false end
+  end
+  return true
+end
+
+local function valid_options(list)
+  local out = {}
+  for _, option in ipairs(type(list) == "table" and list or {}) do
+    if valid_option(option) then out[#out + 1] = { args = option.args, skips_approval = option.skips_approval == true } end
+  end
+  return #out > 0 and out or nil
+end
+
+function M.kept_options(options, skip_approvals)
+  local kept = {}
+  for _, option in ipairs(options or {}) do
+    if skip_approvals or not option.skips_approval then kept[#kept + 1] = option end
+  end
+  return #kept > 0 and kept or nil
+end
+
+function M.transcript_options(spec, id, getenv, home, newest_records)
+  local pattern = spec and spec.transcript_options and M.transcript_pattern(spec, id, getenv, home)
+  if not pattern then return nil end
+  local function last(needle, pred)
+    for _, rec in ipairs(newest_records(pattern, needle)) do
+      if type(rec) == "table" and pred(rec) then return rec end
+    end
+  end
+  local ok, list = pcall(spec.transcript_options, last)
+  return valid_options(ok and list)
+end
+
 function M.resume_of(rec)
   if rec.argv ~= nil then
     if not M.valid_argv(rec.argv) then return nil end
@@ -158,6 +196,9 @@ function M.resume_of(rec)
   local spec = M.specs[rec.agent]
   local argv = spec and M.resume_argv(spec, rec.id)
   if not argv then return nil end
+  for _, option in ipairs(rec.transcript_options or {}) do
+    for _, word in ipairs(option.args) do argv[#argv + 1] = word end
+  end
   return argv, rec.id
 end
 

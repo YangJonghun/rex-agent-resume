@@ -212,11 +212,16 @@ function M.resume(server)
   local snap = M.pick_snapshot(server.instance, os.time())
   if not snap then return util.log("resume: no recent snapshot from an earlier server") end
   util.log("resume: snapshot " .. snap.instance .. " saved " .. os.date("%Y-%m-%d %H:%M:%S", snap.saved_at))
+  local skip_approvals = util.skip_approvals_on()
   for _, entry in ipairs(snap.agents or {}) do
     agents.promote(entry, util.matches_file)
     local spec = agents.specs[entry.agent]
-    local transcript = spec and agents.transcript_pattern(spec, entry.id, os.getenv, util.home())
+    -- Only a transcript path the hook reports is sure to be right; Qwen, for one, can keep its
+    -- transcripts under QWEN_RUNTIME_DIR. Missing a guessed one costs options, not the resume.
+    local transcript = spec and spec.transcript_fields and agents.transcript_pattern(spec, entry.id, os.getenv, util.home())
     entry.no_transcript = transcript ~= nil and not util.matches_file(transcript)
+    local found = agents.transcript_options(spec, entry.id, os.getenv, util.home(), util.newest_records)
+    entry.transcript_options = agents.kept_options(found, skip_approvals)
   end
   local launches, lines = M.plan_resume(snap, util.terminal_panes(), M.running_keys(util.processes(), server.started))
   for _, line in ipairs(lines) do util.log(line) end

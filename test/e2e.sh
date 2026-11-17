@@ -57,8 +57,8 @@ export PATH="$E2E_PATH:$PATH"
 while os.path.exists(sys.argv[1]): time.sleep(0.05)' "$E2E_TMP/hold-until-typed"
 EOF
 
-agents="droid pi kilo hermes notes"
-count=5
+agents="droid pi kilo hermes notes claude"
+count=6
 
 start_server() {
   (env -i HOME="$HOME" USER="$USER" SHELL=/bin/zsh PATH="$bin:${node%/*}:${python%/*}:/usr/bin:/bin:/usr/sbin:/sbin" ZDOTDIR="$tmp" LANG=en_US.UTF-8 TMPDIR="${TMPDIR:-/tmp}" \
@@ -76,6 +76,7 @@ snapshot_full() {
 }
 resumed() { [ "$(grep -c "resumed $count agent(s)" "$state/rex-agent-resume.log" 2>/dev/null)" -ge "$1" ]; }
 running() { ps -axo command= | grep -F "$bin/$1 $2" | grep -v grep >/dev/null; }
+runs_exactly() { ps -axo command= | grep -v grep | sed -n "s|.*$bin/$1 ||p" | grep -Fx -- "$2" >/dev/null; }
 restart() {
   stop_fakes
   start_server || check fail "server restarts"
@@ -95,27 +96,37 @@ done
 check "$(wait_for 20 snapshot_full && echo ok)" "snapshot holds all $count panes"
 
 id_of() { grep -h "\"agent\":\"$1\"" "$state"/agents/*.json | sed -n 's/.*"id":"\([^"]*\)".*/\1/p' | head -1; }
-droid_id=$(id_of droid) pi_id=$(id_of pi) kilo_id=$(id_of kilo) hermes_id=$(id_of hermes)
+droid_id=$(id_of droid) pi_id=$(id_of pi) kilo_id=$(id_of kilo) hermes_id=$(id_of hermes) claude_id=$(id_of claude)
+claude_options="--effort xhigh"
 expect_running() {
   check "$(wait_for 20 running droid "--resume $droid_id" && echo ok)" "$1: droid --resume $droid_id"
   check "$(running pi "--session $pi_id" && echo ok)" "$1: pi --session $pi_id"
   check "$(running kilo "--session $kilo_id" && echo ok)" "$1: kilo --session $kilo_id"
   check "$(running hermes "--resume $hermes_id" && echo ok)" "$1: hermes --resume $hermes_id"
   check "$(running notes "$tmp/todo.txt" && echo ok)" "$1: notes $tmp/todo.txt"
+  check "$(running claude "--resume $claude_id $claude_options" && echo ok)" "$1: claude --resume $claude_id $claude_options"
 }
 
 kill -9 "$(server_pid)"
 restart
 check "$(wait_for 40 resumed 1 && echo ok)" "after kill -9: resumed $count"
 expect_running "after kill -9"
+check "$(runs_exactly claude "--resume $claude_id --effort xhigh" && echo ok)" "approval-skipping modes are not restored by default"
 wait_for 20 snapshot_full >/dev/null
 
+: >"$state/skip-approvals"
 "$rex" -S "$sock" api call server.stop >/dev/null 2>&1
 wait_for 20 server_gone
 restart
 check "$(wait_for 40 resumed 2 && echo ok)" "after server.stop: resumed $count"
 expect_running "after server.stop"
+check "$(runs_exactly claude "--resume $claude_id --effort xhigh --permission-mode bypassPermissions" && echo ok)" "with skip-approvals: claude --permission-mode bypassPermissions"
 wait_for 20 snapshot_full >/dev/null
+
+# As if /effort low and then Shift+Tab back to Manual mode were used in the resumed session.
+printf '%s\n' '{"type":"assistant","effort":"low","isSidechain":false}' '{"type":"permission-mode","permissionMode":"default"}' \
+  >>"$home/.claude/projects/-e2e/$claude_id.jsonl"
+claude_options="--effort low --permission-mode default"
 
 resume_starts() { grep -c "resume: snapshot" "$state/rex-agent-resume.log" 2>/dev/null; }
 starting_resume() { [ "$(resume_starts)" -gt "$started" ]; }
@@ -134,6 +145,7 @@ kill_server_while_it_resumes
 restart
 check "$(wait_for 40 resumed 3 && echo ok)" "after a crash mid-resume: the next server resumed $count"
 expect_running "after a crash mid-resume"
+check "$(runs_exactly claude "--resume $claude_id $claude_options" && echo ok)" "changed during the session: claude $claude_options"
 wait_for 20 snapshot_full >/dev/null
 
 type_before_the_prompt() {

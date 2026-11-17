@@ -4,7 +4,7 @@ package.path = root .. "/lua/?.lua;" .. root .. "/test/?.lua;" .. package.path
 local util = require("rex-agent-resume.util")
 assert(util.home() ~= os.getenv("HOME"), "run through test/run.sh so the real home is never touched")
 
-for _, name in ipairs({ "agents", "detect", "hook", "watch", "install" }) do
+for _, name in ipairs({ "agents", "options", "detect", "hook", "watch", "install" }) do
   require("unit." .. name)
 end
 
