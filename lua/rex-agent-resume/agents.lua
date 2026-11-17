@@ -88,10 +88,8 @@ end
 
 function M.config_dir(spec, getenv, home)
   local dir = spec.install.dir
-  for _, name in ipairs({ dir.env, dir.env2 }) do
-    local value = name and getenv(name)
-    if value and value ~= "" then return dir.suffix and (value .. "/" .. dir.suffix) or value end
-  end
+  local value = dir.env and getenv(dir.env)
+  if value and value ~= "" then return dir.suffix and (value .. "/" .. dir.suffix) or value end
   local relative = dir.home_env and getenv(dir.home_env)
   if relative and relative ~= "" then
     return (relative:sub(1, 1) == "/" and relative or (home .. "/" .. relative)) .. "/" .. dir.home_suffix

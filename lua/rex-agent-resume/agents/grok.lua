@@ -6,7 +6,7 @@ return {
   id_fields = { "session_id", "sessionId" },
   id_env = "GROK_SESSION_ID",
   install = {
-    dir = { env = "GROK_CONFIG_DIR", env2 = "GROK_HOME", default = ".grok" },
+    dir = { env = "GROK_HOME", default = ".grok" },
     file = "hooks/rex-agent-resume.json",
     own_file = true,
     lists = { { "hooks", "SessionStart" } },
