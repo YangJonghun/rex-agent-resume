@@ -88,7 +88,7 @@ in_rex do "$root/lua/rex-agent-resume/run.lua" mode=install >/dev/null
 check "$(grep -q rex-agent-resume-hook "$home/.factory/settings.json" && echo ok)" "hook installed for droid"
 check "$(test -f "$home/.pi/agent/extensions/rex-agent-resume.ts" && echo ok)" "plugin installed for pi"
 
-in_rex do "$root/test/fixtures/open-panes.lua" commands="$(echo $agents | tr ' ' ',')" >/dev/null
+in_rex do "$root/test/fixtures/open-panes.lua" commands="$(echo $agents | tr ' ' ',' | sed 's/kilo/kilo --auto/')" >/dev/null
 check "$(wait_for 40 has_records && echo ok)" "all $count panes recorded ($(records) recorded)"
 for agent in $agents; do
   check "$(grep -lq "\"$agent\"" "$state"/agents/*.json && echo ok)" "$agent recorded"
@@ -112,6 +112,7 @@ restart
 check "$(wait_for 40 resumed 1 && echo ok)" "after kill -9: resumed $count"
 expect_running "after kill -9"
 check "$(runs_exactly claude "--resume $claude_id --effort xhigh" && echo ok)" "approval-skipping modes are not restored by default"
+check "$(runs_exactly kilo "--session $kilo_id" && echo ok)" "kilo started with --auto comes back without it by default"
 wait_for 20 snapshot_full >/dev/null
 
 : >"$state/skip-approvals"
@@ -121,6 +122,7 @@ restart
 check "$(wait_for 40 resumed 2 && echo ok)" "after server.stop: resumed $count"
 expect_running "after server.stop"
 check "$(runs_exactly claude "--resume $claude_id --effort xhigh --permission-mode bypassPermissions" && echo ok)" "with skip-approvals: claude --permission-mode bypassPermissions"
+check "$(runs_exactly kilo "--session $kilo_id" && echo ok)" "an option left out on one resume stays out on the next"
 wait_for 20 snapshot_full >/dev/null
 
 # As if /effort low and then Shift+Tab back to Manual mode were used in the resumed session.
@@ -163,17 +165,18 @@ check "$(wait_for 40 resumed 4 && echo ok)" "with text typed before the prompt: 
 expect_running "with text typed before the prompt"
 wait_for 20 snapshot_full >/dev/null
 
-droid_ids() { sed -n 's/.*"agent":"droid".*"id":"\([^"]*\)".*/\1/p' "$state"/agents/*.json 2>/dev/null; }
-new_droid() { droid_ids | grep -vx "$droid_id" | head -1; }
-has_new_droid() { [ -n "$(new_droid)" ]; }
-in_rex do "$root/test/fixtures/open-panes.lua" commands=droid >/dev/null
-wait_for 40 has_new_droid
-new_id=$(new_droid)
+ids_of() { sed -n "s/.*\"agent\":\"$1\".*\"id\":\"\([^\"]*\)\".*/\1/p" "$state"/agents/*.json 2>/dev/null; }
+new_id_of() { ids_of "$1" | grep -vx "$2" | head -1; }
+has_new_panes() { [ -n "$(new_id_of droid "$droid_id")" ] && [ -n "$(new_id_of kilo "$kilo_id")" ]; }
+in_rex do "$root/test/fixtures/open-panes.lua" commands="droid,kilo --auto" >/dev/null
+wait_for 40 has_new_panes
+new_id=$(new_id_of droid "$droid_id") new_kilo=$(new_id_of kilo "$kilo_id")
 sleep 0.5
 kill -9 "$(server_pid)"
 wait_for 20 server_gone
 restart
 check "$(wait_for 40 running droid "--resume $new_id" && echo ok)" "killed half a second after its hook ran: droid --resume $new_id"
+check "$(wait_for 20 runs_exactly kilo "--session $new_kilo --auto" && echo ok)" "with skip-approvals: kilo --session $new_kilo --auto"
 
 [ "$failures" -gt 0 ] && tail -20 "$state/rex-agent-resume.log"
 echo "e2e: $checks checks, $failures failure(s)"

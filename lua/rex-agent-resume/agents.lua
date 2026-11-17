@@ -176,6 +176,33 @@ function M.kept_options(options, skip_approvals)
   return #kept > 0 and kept or nil
 end
 
+function M.read_flags(words, value_flags)
+  local takes = {}
+  for _, name in ipairs(value_flags or {}) do takes[name] = true end
+  local flags, i = {}, 1
+  while i <= #words do
+    local word = words[i]
+    local name, value = word:match("^(%-%-[^=]+)=(.*)$")
+    if name then
+      flags[name] = value
+    elseif takes[word] and words[i + 1] then
+      flags[word], i = words[i + 1], i + 1
+    elseif word:sub(1, 2) == "--" then
+      flags[word] = true
+    end
+    i = i + 1
+  end
+  return flags
+end
+
+-- Agents take a prompt on their command line, so only the options read from it are kept.
+function M.launch_options(spec, command)
+  if not (spec and spec.launch_options and command) then return nil end
+  local words = {}
+  for word in command:gmatch("%S+") do words[#words + 1] = word end
+  return valid_options(spec.launch_options(M.read_flags(words, spec.launch_value_flags)))
+end
+
 function M.transcript_options(spec, id, getenv, home, newest_records)
   local pattern = spec and spec.transcript_options and M.transcript_pattern(spec, id, getenv, home)
   if not pattern then return nil end
@@ -196,8 +223,10 @@ function M.resume_of(rec)
   local spec = M.specs[rec.agent]
   local argv = spec and M.resume_argv(spec, rec.id)
   if not argv then return nil end
-  for _, option in ipairs(rec.transcript_options or {}) do
-    for _, word in ipairs(option.args) do argv[#argv + 1] = word end
+  for _, options in ipairs({ rec.options or {}, rec.transcript_options or {} }) do
+    for _, option in ipairs(options) do
+      for _, word in ipairs(option.args) do argv[#argv + 1] = word end
+    end
   end
   return argv, rec.id
 end
@@ -220,7 +249,7 @@ function M.merge_report(old, report, pid, transcript_exists)
       return old
     end
   end
-  local rec = { agent = report.agent, argv = report.argv, pid = pid }
+  local rec = { agent = report.agent, argv = report.argv, options = report.options, pid = pid }
   if report.transcript and not transcript_exists then
     rec.pending = { id = report.id, transcript = report.transcript }
     if old and old.agent == report.agent and (old.pid == nil or old.pid == pid) then rec.id = old.id end

@@ -56,6 +56,20 @@ function M.pane_agent(rec, fg, command, started, now)
   return now - (rec.updated_at or 0) < UNCONFIRMED_RESUME_TTL
 end
 
+function M.snapshot_entry(rec, pane, fg)
+  return {
+    block_id = pane.block_id, where = pane.where, agent = rec.agent, id = rec.id, argv = rec.argv,
+    options = rec.options, pending = rec.pending, cwd = rec.cwd or fg.cwd,
+  }
+end
+
+function M.resumed_record(entry, session_id, now)
+  return {
+    agent = entry.agent, id = entry.id, argv = entry.argv, options = entry.options,
+    block_id = entry.block_id, session_id = session_id, cwd = entry.cwd, updated_at = now,
+  }
+end
+
 function M.take_snapshot(server)
   local panes, out, procs = util.terminal_panes(), {}, nil
   for _, pane in ipairs(panes) do
@@ -75,12 +89,7 @@ function M.take_snapshot(server)
         rec.pid = confirm
         util.write_json(path, rec)
       end
-      if counted then
-        out[#out + 1] = {
-          block_id = pane.block_id, where = pane.where, agent = rec.agent, id = rec.id, argv = rec.argv,
-          pending = rec.pending, cwd = rec.cwd or fg.cwd,
-        }
-      end
+      if counted then out[#out + 1] = M.snapshot_entry(rec, pane, fg) end
     end
   end
   return { instance = server.instance, saved_at = os.time(), agents = out }
@@ -89,8 +98,9 @@ end
 local function fingerprint(snap)
   local parts = {}
   for _, a in ipairs(snap.agents) do
-    local _, key = agents.resume_of(a)
-    parts[#parts + 1] = a.block_id .. "|" .. tostring(key) .. "|" .. tostring(a.pending and a.pending.id) .. "|" .. a.where
+    local argv = agents.resume_of(a)
+    local command = argv and table.concat(argv, " ")
+    parts[#parts + 1] = a.block_id .. "|" .. tostring(command) .. "|" .. tostring(a.pending and a.pending.id) .. "|" .. a.where
   end
   return table.concat(parts, "\n")
 end
@@ -222,6 +232,7 @@ function M.resume(server)
     entry.no_transcript = transcript ~= nil and not util.matches_file(transcript)
     local found = agents.transcript_options(spec, entry.id, os.getenv, util.home(), util.newest_records)
     entry.transcript_options = agents.kept_options(found, skip_approvals)
+    entry.options = agents.kept_options(entry.options, skip_approvals)
   end
   local launches, lines = M.plan_resume(snap, util.terminal_panes(), M.running_keys(util.processes(), server.started))
   for _, line in ipairs(lines) do util.log(line) end
@@ -233,10 +244,7 @@ function M.resume(server)
     if ready and entry.cwd and not util.run({ "test", "-d", entry.cwd }).ok then
       util.log("skip " .. entry.block_id .. ": its directory " .. entry.cwd .. " is gone")
     elseif ready then
-      util.write_json(util.record_path(entry.block_id), {
-        agent = entry.agent, id = entry.id, argv = entry.argv,
-        block_id = entry.block_id, session_id = launch.session_id, cwd = entry.cwd, updated_at = os.time(),
-      })
+      util.write_json(util.record_path(entry.block_id), M.resumed_record(entry, launch.session_id, os.time()))
       local line = M.command_line(launch.command, entry.cwd, shell.cwd, strip)
       rex.block.call(util.TERMINAL, "write", { block_id = entry.block_id, session_id = launch.session_id, data = CLEAR_LINE .. line .. "\r" })
       count = count + 1
@@ -260,7 +268,7 @@ function M.discover_running(server)
     if command and not current and not util.is_bare_shell(command) then
       local agent, id, transcript = agents.discover(command, fg.pid, util.read_json, os.getenv, util.home())
       if agent then
-        local report = { agent = agent, id = id, transcript = transcript }
+        local report = { agent = agent, id = id, transcript = transcript, options = agents.launch_options(agents.specs[agent], command) }
         local found = agents.merge_report(rec, report, fg.pid, transcript == nil or util.matches_file(transcript))
         found.block_id, found.session_id, found.cwd, found.updated_at = pane.block_id, pane.session_id, fg.cwd, os.time()
         util.write_json(path, found)

@@ -4,6 +4,13 @@ return {
   replace_on = { "select" },
   events = { "sessionstart" },
   id_fields = { "session_id" },
+  -- Auto-approve lives only in the running TUI.
+  launch_options = function(flag)
+    if flag["--auto"] or flag["--yolo"] or flag["--dangerously-skip-permissions"] then
+      return { { args = { "--auto" }, skips_approval = true } }
+    end
+    return {}
+  end,
   install = {
     dir = { default = ".config/opencode" },
     files = {

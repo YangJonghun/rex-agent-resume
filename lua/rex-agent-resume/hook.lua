@@ -37,9 +37,11 @@ local function record(ppid, procs, pane, report)
   local fg = process and process.foreground
   local owner = fg and M.pane_owner(ppid, procs, fg.pid)
   if not owner then return false, "the calling program is not in front of pane " .. pane.block_id end
-  if report.agent and detect.agent(procs[owner] and procs[owner].command or "") ~= report.agent then
+  local command = procs[owner] and procs[owner].command or ""
+  if report.agent and detect.agent(command) ~= report.agent then
     return false, "the program in front of pane " .. pane.block_id .. " is not " .. report.agent
   end
+  report.options = agents.launch_options(agents.specs[report.agent], command)
   local path = util.record_path(pane.block_id)
   local old = util.read_json(path)
   local rec = agents.merge_report(old, report, owner, report.transcript == nil or util.matches_file(report.transcript))
