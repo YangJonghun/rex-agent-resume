@@ -79,6 +79,7 @@ function M.take_snapshot(server)
         out[#out + 1] = {
           block_id = pane.block_id, where = pane.where, agent = rec.agent, id = rec.id, argv = rec.argv,
           pending = rec.pending, cwd = rec.cwd or fg.cwd,
+          session_label = pane.session_label, window_index = pane.window_index, block_index = pane.block_index,
         }
       end
     end
@@ -86,11 +87,12 @@ function M.take_snapshot(server)
   return { instance = server.instance, saved_at = os.time(), agents = out }
 end
 
-local function fingerprint(snap)
+function M.fingerprint(snap)
   local parts = {}
   for _, a in ipairs(snap.agents) do
     local _, key = agents.resume_of(a)
     parts[#parts + 1] = a.block_id .. "|" .. tostring(key) .. "|" .. tostring(a.pending and a.pending.id) .. "|" .. a.where
+      .. "|" .. tostring(a.session_label) .. "|" .. tostring(a.window_index) .. "|" .. tostring(a.block_index)
   end
   return table.concat(parts, "\n")
 end
@@ -145,11 +147,25 @@ function M.running_keys(procs, started)
 end
 
 function M.plan_resume(snap, panes, running)
-  local by_block, claimed, launches, lines = {}, {}, {}, {}
-  for _, pane in ipairs(panes) do by_block[pane.block_id] = pane end
+  local by_block, by_position, claimed, launches, lines = {}, {}, {}, {}, {}
+  for _, pane in ipairs(panes) do
+    by_block[pane.block_id] = pane
+    if pane.session_label and pane.window_index then
+      local pos = pane.session_label .. "\0" .. tostring(pane.window_index) .. "\0" .. tostring(pane.block_index or 0)
+      -- Two panes can share a position (e.g. sessions with the same label); when they do,
+      -- there is no safe match, so record false so the fallback below treats it as missing.
+      if by_position[pos] == nil then by_position[pos] = pane else by_position[pos] = false end
+    end
+  end
   for _, a in ipairs(snap.agents or {}) do
     local label = agents.label(a) .. " " .. a.block_id .. " (" .. (a.where or "?") .. ")"
     local pane = by_block[a.block_id]
+    -- A server restart or upgrade regenerates block ids; match by position instead and
+    -- rewrite the entry so the resume below addresses the pane that is actually there.
+    if not pane and a.session_label and a.window_index then
+      pane = by_position[a.session_label .. "\0" .. tostring(a.window_index) .. "\0" .. tostring(a.block_index or 0)]
+      if pane then a.block_id = pane.block_id end
+    end
     local argv, key = agents.resume_of(a)
     if not pane then
       lines[#lines + 1] = "skip " .. label .. ": pane is not on this server"
@@ -346,7 +362,7 @@ function M.watch()
 
   local function save()
     local snap = M.take_snapshot(server)
-    local key = fingerprint(snap)
+    local key = M.fingerprint(snap)
     if key == last then return end
     util.write_json(util.path("snapshots/" .. server.instance .. ".json"), snap)
     last = key
