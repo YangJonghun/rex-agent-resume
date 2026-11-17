@@ -15,7 +15,7 @@ When the [Rex](https://www.superlogical.com/rex) server restarts, Rex brings bac
 
 rex-agent-resume remembers what ran in each pane and starts it again in the same pane after the restart.
 
-- **AI coding agents.** Claude Code, Codex, and 16 others reopen the conversation you had, with nothing to set up after the install.
+- **AI coding agents.** Claude Code, Codex, and [16 others](#supported-agents) reopen the conversation you had, with nothing to set up after the install. Most come back in the same model and mode too. [See which.](#supported-agents)
 - **Your own agents and tools.** Vim or any other program reopens too, once it registers the command that reopens it.
 
 ## Get started
@@ -52,13 +52,52 @@ With the actions below you can turn automatic resume off, or remove the hooks an
 
 Open the command palette with ⌘⇧P and search for `Agent Resume`, or run `rex do <name>`.
 
-| Palette title                                                      | Name                     | What it does                                       |
-| ------------------------------------------------------------------ | ------------------------ | -------------------------------------------------- |
-| Turn Off Agent Resume on Startup / Turn On Agent Resume on Startup | `agent_resume_toggle`    | Turns reopening on restart off or on               |
-| Uninstall rex-agent-resume                                         | `agent_resume_uninstall` | Removes the hooks, plugins, and Rex config         |
-| Register Resume Command for This Pane                              | `agent_resume_hint`      | Used by programs to register their reopen command  |
+| Palette title | Name | What it does |
+| --- | --- | --- |
+| Turn Off Agent Resume on Startup / Turn On Agent Resume on Startup | `agent_resume_toggle` | Turns reopening on restart off or on |
+| Restore Approval-Skipping Modes on Resume / Stop Restoring Approval-Skipping Modes on Resume | `agent_resume_skip_approvals_toggle` | Brings back modes that run tools without asking, such as `--dangerously-skip-permissions`. Off by default. [When to turn it on](#approval-skipping-modes) |
+| Uninstall rex-agent-resume | `agent_resume_uninstall` | Removes the hooks, plugins, and Rex config |
+| Register Resume Command for This Pane | `agent_resume_hint` | Used by programs to register their reopen command |
 
 If the server restarted while it was off, turning it back on reopens right away.
+
+## Supported agents
+
+Every agent reopens its conversation with its own resume command. Most agents also bring back their model and mode by themselves. Where an agent forgets one, rex-agent-resume adds it to the command. What each agent brings back by itself comes from its source code or docs; only Claude Code and Codex were tested with the real agent.
+
+| Agent | Resume command | Connected by | Comes back by itself | Added by rex-agent-resume |
+| --- | --- | --- | --- | --- |
+| Claude Code | `claude --resume <id>` | hook | model, agent, permission mode except Manual and bypass | effort, Manual mode, bypass mode* |
+| Codex | `codex --no-daemon resume <id>` | hook | model, effort, approvals, sandbox, plan mode | — |
+| GitHub Copilot CLI | `copilot --resume=<id>` | hook | model, mode, custom agent | — |
+| Cursor Agent CLI | `cursor-agent --resume <id>` | hook | model, mode, approval mode | — |
+| Droid | `droid --resume <id>` | hook | model, effort, autonomy level | — |
+| Devin CLI | `devin --resume <id>` | hook | model, profile | permission mode†, dangerous mode*†, `--sandbox`† |
+| Kimi Code CLI | `kimi --session <id>` | hook | model, effort, permission mode, plan mode | — |
+| Hermes Agent | `hermes --resume <id>` | plugin | model, reasoning, yolo mode | — |
+| Letta Code | `letta --conversation <id>` | hook | model, effort | permission mode†, unrestricted mode*† |
+| OpenCode | `opencode --session <id>` | plugin | model, agent, effort | `--auto`*† |
+| Kilo Code CLI | `kilo --session <id>` | plugin | model, agent, effort | `--auto`*† |
+| Pi | `pi --session <id>` | extension | model, thinking level | — |
+| OMP | `omp --resume=<id>` | extension | model, thinking level, mode | approval mode†, yolo mode*†, `--profile`† |
+| MastraCode | `mastracode resume <id>` | hook | mode, model, thinking level, permission rules | — |
+| Qwen Code | `qwen --resume <id>` | hook | — | model, auth type, approval mode, yolo mode* |
+| Qoder CLI | `qodercli --resume <id>` | hook | model, effort | permission mode, yolo mode* |
+| Grok CLI | `grok --resume <id>` | hook | model, effort, sandbox, plan mode | — |
+| Antigravity CLI | `agy --conversation <id>` | hook | agent; model and mode from its global settings | mode†, `--sandbox`†, `--dangerously-skip-permissions`*† |
+
+\* Added only when **Restore Approval-Skipping Modes on Resume** is on. See [Approval-skipping modes](#approval-skipping-modes).
+
+† Read from the command you started the agent with, so a change made inside the agent is lost. Everything else follows the changes you make during the session.
+
+### Approval-skipping modes
+
+You can skip this unless you start agents in a mode that runs tools without asking you, for example `claude --dangerously-skip-permissions`, `qwen --yolo`, or `kilo --auto`. The options marked * in the table are such modes. rex-agent-resume adds them back only when you turn on **Restore Approval-Skipping Modes on Resume**. It is one setting for all agents.
+
+- **Turn it on** if you run agents in these modes without a sandbox. After a restart they keep working instead of stopping at the first approval prompt.
+- **Leave it off** if you run agents in these modes only inside a sandbox, such as `sandbox-exec` on macOS or `bwrap` on Linux. rex-agent-resume reopens an agent with its resume command, not through your sandbox command. With the setting on, the agent would come back with no prompts and no sandbox.
+
+Agents with no \* in the table come back the same whether the setting is on or off. Codex, Cursor, Droid, Kimi, and Hermes bring these modes back by themselves, and Copilot likely does too. Grok and MastraCode take them from their own settings, and Pi has no such mode. If you run one of those agents in such a mode inside a sandbox, the only way to stop it from coming back outside the sandbox is **Turn Off Agent Resume on Startup**, which stops reopening for every agent.
 
 ## How it works
 
@@ -68,7 +107,7 @@ With Claude Code as the example, it works in this order:
 2. **When you start or switch a conversation.** Claude Code runs the hook with the session id. Our script writes down "this pane runs `claude`, session `abc`". A new conversation overwrites it.
 3. **While the server runs.** A watcher inside the Rex server saves the list of panes that have an agent in front: right after an agent's hook runs, 2 seconds after a change in a pane, and every minute anyway. A pane where you quit the agent and are back at the shell drops off the list.
 4. **When the server stops.** Nothing happens. The list saved in step 3 is what remains.
-5. **When the server starts again.** Rex brings the panes back as empty shells, and the watcher reads the saved list and types `claude --resume abc` into each pane.
+5. **When the server starts again.** Rex brings the panes back as empty shells, and the watcher reads the saved list and types `claude --resume abc` into each pane, with any [options the agent forgets](#supported-agents).
 
 Only step 2 differs between agents. Most use a hook, and a few such as OpenCode use a plugin, to call our script. Vim and your own tools [tell it themselves](#register-your-own-agent-or-tool).
 
