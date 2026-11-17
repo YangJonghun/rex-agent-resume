@@ -4,7 +4,9 @@ return {
   events = { "sessionstart", "" },
   id_fields = { "session_id", "sessionId", "conversation_id", "conversationId" },
   install = {
-    dir = { env = "CURSOR_CONFIG_DIR", default = ".cursor" },
+    -- Its config dir follows CURSOR_CONFIG_DIR and XDG_CONFIG_HOME, but user hooks are
+    -- read from ~/.cursor/hooks.json only.
+    dir = { default = ".cursor" },
     file = "hooks.json",
     defaults = { version = 1 },
     lists = { { "hooks", "sessionStart" } },

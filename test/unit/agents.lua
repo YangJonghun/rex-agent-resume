@@ -60,6 +60,7 @@ eq(parse("omp", plugin_report, env({ OMPCODE = "1" })), nil, "omp started from a
 eq(select(2, agents.discover("/opt/venv/bin/python3.12 /h/.local/bin/hermes --resume h9", 7, files({}), no_env, "/h")), "h9", "an agent run through python is recognized")
 eq(select(2, agents.discover("/opt/homebrew/Frameworks/Python.framework/Versions/3.15/Resources/Python.app/Contents/MacOS/Python /h/bin/hermes --resume h8", 7, files({}), no_env, "/h")), "h8", "and through the macOS framework Python")
 
+eq(agents.config_dir(agents.specs.cursor, env({ CURSOR_CONFIG_DIR = "/c", XDG_CONFIG_HOME = "/x" }), "/h"), "/h/.cursor", "cursor hooks live in ~/.cursor whatever its config dir")
 eq(agents.config_dir(agents.specs.grok, env({ GROK_CONFIG_DIR = "/c", GROK_HOME = "/g" }), "/h"), "/g", "grok reads only GROK_HOME")
 eq(agents.config_dir(agents.specs.omp, no_env, "/h"), "/h/.omp/agent", "omp default directory")
 eq(agents.config_dir(agents.specs.omp, env({ PI_CONFIG_DIR = ".omp2" }), "/h"), "/h/.omp2/agent", "PI_CONFIG_DIR is relative to home")
