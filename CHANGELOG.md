@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.0-beta.6](https://github.com/YangJonghun/rex-agent-resume/compare/v0.1.0-beta.5...v0.1.0-beta.6) (2026-11-25)
+
+
+### Features
+
+* add a palette action to restore approval-skipping modes ([e9f77c8](https://github.com/YangJonghun/rex-agent-resume/commit/e9f77c8002829ba00059c34d74ecc9160097c668))
+* restore the options agents forget on resume, read from their transcripts ([809131a](https://github.com/YangJonghun/rex-agent-resume/commit/809131a556701c2f397d89efd6b5217543611690))
+* restore the options agents were started with but forget on resume ([3ef12f3](https://github.com/YangJonghun/rex-agent-resume/commit/3ef12f3c1cb39ff6339f1452aeef6021b90aaa69))
+
+
+### Bug Fixes
+
+* install the cursor hook in ~/.cursor whatever its config dir ([6b9bde6](https://github.com/YangJonghun/rex-agent-resume/commit/6b9bde6f82f8ae7c60b6338ccff3f5ca46de5b8f))
+* install the grok hook under GROK_HOME only ([c1e452e](https://github.com/YangJonghun/rex-agent-resume/commit/c1e452e1dce6ae5a872b90e902ee7f6041fca557))
+* resume mastracode threads with `mastracode resume <id>` ([cb29c46](https://github.com/YangJonghun/rex-agent-resume/commit/cb29c4670d14679e3ba09381fde36f9ff5d92ffa))
+
 ## [0.1.0-beta.5](https://github.com/YangJonghun/rex-agent-resume/compare/v0.1.0-beta.4...v0.1.0-beta.5) (2026-11-06)
 
 
